@@ -1,60 +1,80 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from skimage.util import random_noise
 from sklearn.metrics import mean_squared_error
 
 
 class ImageDegradation:
     def __init__(self, path):
         self.noise = 0
-        self.image = cv2.imread(path, 0)
+        self.image = cv2.imread(path)
+        self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)
         # dispay original image
         # plt.figure('Original Image')
         # plt.imshow(self.image)
         self.width, self.height = self.image.shape[:2]
 
-        blurred_img = self.motion_blur(self.image, 16, 12)
-        gaus_and_motion = self.gaussian_blur(1.1, 0.8, blurred_img[0])
-        self.gaussian = self.gaussian_blur(1.1, 0.8, self.image)
-        # self.plot_motion_and_gaussian(blurred_img[0], gaus_and_motion)
+        # for each color channel, apply motion blur to it
+        (blue, green, red) = cv2.split(self.image)
+        blue_blurred, blue_H = self.motion_blur(blue)
+        green_blurred, green_H = self.motion_blur(green)
+        red_blurred, red_H = self.motion_blur(red)
+        # now merge the channels to make one image
+        # and normalize the image
+        blurred_img = cv2.merge((blue_blurred, green_blurred, red_blurred))
+        blurred_img = blurred_img / np.max(blurred_img)
 
-        deblurred_motion = self.direct_inverse_filtering(blurred_img[0], blurred_img[1], alpha=1)
-        #plt.figure('Deblurred Motion Image')
-        #plt.imshow(deblurred_motion, cmap='gray')
+        gaus_and_motion = random_noise(blurred_img, mode='gaussian', mean=0.1, var=0.8)
+        self.gaussian = random_noise(self.image, mode='gaussian', mean=0.1, var=0.8)
+        # self.plot_motion_and_gaussian(blurred_img, gaus_and_motion)
 
-        de_motion_and_gaus = self.direct_inverse_filtering(gaus_and_motion, blurred_img[1])
+        (blue2, green2, red2) = cv2.split(blurred_img)
+        blue_deblurred = self.direct_inverse_filtering(blue2, blue_H)
+        green_deblurred = self.direct_inverse_filtering(green2, green_H)
+        red_deblurred = self.direct_inverse_filtering(red2, red_H)
+        deblurred_motion = cv2.merge((blue_deblurred, green_deblurred, red_deblurred))
+        deblurred_motion = deblurred_motion / np.max(deblurred_motion)
+
+        # plt.figure('Deblurred Motion Image')
+        # plt.imshow(deblurred_motion)
+
+        # de_motion_and_gaus = self.direct_inverse_filtering(gaus_and_motion, blurred_img[1])
         # plt.figure('Deblurred Motion and Gaussian Image')
         # plt.imshow(de_motion_and_gaus, cmap='gray', vmin=0, vmax=255)
 
-        # self.wiener_filtering(self.image, blurred_img[0], blurred_img[1], 'Motion Blur')
-        self.wiener_filtering(self.image, gaus_and_motion, blurred_img[1], 'Motion and Gaussian Blur')
+        (blue3, green3, red3) = cv2.split(deblurred_motion)
+        blue_wiener = self.wiener_filtering(blue, blue3, blue_H, "Motion Blur")
+        green_wiener = self.wiener_filtering(green, green3, green_H, "Motion Blur")
+        red_wiener = self.wiener_filtering(red, red3, red_H, "Motion Blur")
+        wiener_motion = cv2.merge((blue_wiener, green_wiener, red_wiener))
+        wiener_motion = wiener_motion / np.max(wiener_motion)
 
-    def getSignalToNoiseRatio(self, noise_spectra, original_spectra):
-        ratios = np.zeros(self.image.shape)
-        for i in range(self.width):
-            for j in range(self.height):
-                ratios[i][j] = (original_spectra[i][j])**2 / (noise_spectra[i][j] - original_spectra[i][j]) ** 2
+        (blue4, green4, red4) = cv2.split(gaus_and_motion)
+        blue_wiener2 = self.wiener_filtering(blue, blue4, blue_H, "Gaussian Blur")
+        green_wiener2 = self.wiener_filtering(green, green4, green_H, "Gaussian Blur")
+        red_wiener2 = self.wiener_filtering(red, red4, red_H, "Gaussian Blur")
+        wiener_gaus = cv2.merge((blue_wiener2, green_wiener2, red_wiener2))
+        wiener_gaus = wiener_gaus / np.max(wiener_gaus)
+        #self.wiener_filtering(self.image, gaus_and_motion, blurred_img[1], 'Motion and Gaussian Blur')
 
-        return ratios
-
-    def motion_blur(self, image, alpha, beta):
-        width, height = image.shape
-        x = image.astype(np.double)
-        width_2 = int(width / 2)
-        height_2 = int(height / 2)
+    def motion_blur(self, channel, alpha=20, beta=12):
+        width, height = channel.shape
+        width_2 = int(width/2)
+        height_2 = int(height/2)
 
         # create a width x height mesh grid
         [u, v] = np.mgrid[-width_2:width_2, -height_2:height_2]
 
         # calculate u and v
-        u = 2 * u / width
-        v = 2 * v / height
+        u = 2 * u / self.width
+        v = 2 * v / self.height
 
         # define H
         H = np.sinc((u * alpha) + (v * beta)) * np.exp(-1j * np.pi * (u * alpha + v * beta))
 
         # find the FFT of the image and display it
-        F = np.fft.fft2(x)
+        F = np.fft.fft2(channel)
 
         # shift the FFT
         F_shift = np.fft.fftshift(F)
@@ -64,48 +84,24 @@ class ImageDegradation:
 
         return np.abs(np.fft.ifft2(blurred_img)), H
 
-    def gaussian_blur(self, mu, sigma, z):
-        gaussian = np.random.normal(mu, sigma, z.shape)
-        z = z.astype(np.uint8)
-
-        # this is to use in a later exercise
-        self.noise = z
-
-        z = z + gaussian
-
-        return z
-
     def plot_motion_and_gaussian(self, blurred_img, gaus_img):
         plt.subplots(1, 3, figsize=(10, 3.8))
         plt.subplot(1, 3, 1)
-        plt.imshow(self.image, cmap='gray')
+        plt.imshow(self.image)
         plt.title('Original Image')
 
         plt.subplot(1, 3, 2)
-        plt.imshow(blurred_img, cmap='gray')
+        plt.imshow(blurred_img)
         plt.title('Motion Blur')
 
         plt.subplot(1, 3, 3)
-        plt.imshow(gaus_img, cmap='gray')
+        plt.imshow(gaus_img)
         plt.title('Gaussian Blur')
 
-    def direct_inverse_filtering(self, blur_img, H, alpha=0.1):
-        # find the inverse of the filter
-        # if there is a number in H smaller than alpha, set it to alpha
-        # this ensures we have no division by zero
-        H_inv = np.zeros(H.shape)
-        for i in range(H.shape[0]):
-            for j in range(H.shape[1]):
-
-                if np.abs(H[i, j]) < alpha:
-                    H_inv[i, j] = alpha
-                else:
-                    H_inv[i, j] = np.abs(1 / H[i, j])
-
-        F = np.fft.fft2(blur_img)
-
+    def direct_inverse_filtering(self, channel, H):
+        F = np.fft.fft2(channel)
         # apply the inverse filter
-        deblurred = F * H_inv
+        deblurred = F * (1/H)
 
         return np.abs(np.fft.ifft2(deblurred))
 
@@ -119,14 +115,15 @@ class ImageDegradation:
         # find K to approximate the ratio between the power spectrums
         K = 1  # if it is only motion blur
         if name != 'Motion Blur':
-            K = self.getSignalToNoiseRatio(noise_power_spectrum, power_spectrum)
+            K = np.sum(noise_power_spectrum) / np.sum(power_spectrum)
 
         H_wiener = (1 / H) * (abs_H_2 / (abs_H_2 + (noise_power_spectrum / power_spectrum)*K))
+
         fft_shift = np.fft.fftshift(np.fft.fft2(blur_img))
         result = np.fft.ifft2(fft_shift * H_wiener)
 
         plt.figure('Wiener Filtering')
-        plt.imshow(np.abs(result), cmap='gray')
+        plt.imshow(np.abs(result))
         plt.title('Wiener Filtering of ' + name)
 
         return H_wiener

@@ -60,10 +60,8 @@ class WatermarkDetection:
 
         return watermark_approx
 
-    def getBlockCoefficients(self, c_cappy, c):
 
-
-    #def watermark_approximation(self, dct, mean=16.673039316413192, alpha=0.02, K=6):
+    # def watermark_approximation(self, dct, mean=16.673039316413192, alpha=0.02, K=6):
 
 
 images = WatermarkDetection("images/Nail_art.jpg", "images/watermarked.png")

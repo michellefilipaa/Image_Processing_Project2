@@ -95,17 +95,12 @@ class Recognition:
 
         title = 'Reconstructed Face for ' + name + ' with ' + other + '\'s eigenface'
         plt.figure(title, figsize=(12, 5))
-        plt.subplot(1, 3, 1)
+        plt.subplot(1, 2, 1)
         plt.imshow(self.original, cmap='gray')
         plt.title('Original')
         plt.axis('off')
 
-        plt.subplot(1, 3, 2)
-        #plt.imshow(new_face - mean, cmap='gray')
-        plt.title('Eigenface')
-        plt.axis('off')
-
-        plt.subplot(1, 3, 3)
+        plt.subplot(1, 2, 2)
         plt.imshow(new_face, cmap='gray')
         plt.title('Reconstructed')
         plt.axis('off')
@@ -135,7 +130,7 @@ woman_other = 'images/Faces/woman_freckles.jpeg'
 
 # create a kid face object
 kid = Recognition(kid_path, kid_hair_path, kid_glasses_path, kid_chubby_path, kid_beard_path, kid_other_path)
-#kid.visualize_faces([kid.original, kid.hair, kid.glasses, kid.chubby, kid.beard, kid.other], 'All Original Faces')
+# kid.visualize_faces([kid.original, kid.hair, kid.glasses, kid.chubby, kid.beard, kid.other], 'All Original Faces')
 kid_faces = [kid.original, kid.hair, kid.glasses, kid.chubby, kid.beard, kid.other]
 eigenfaces_kid, mean_kid, eigenvalues_kid = kid.eigenfaces(kid_faces, 'Kid')
 kid.visualize_faces(eigenfaces_kid, 'Eigenfaces for Kid')
@@ -158,7 +153,7 @@ old.reconstruct(eigenvalues_old, mean_old, 'Old', 6)
 # create a woman face object
 woman = Recognition(woman_path, woman_with_hair, woman_with_glasses, woman_chubby, woman_with_beard, woman_other)
 woman_faces = [woman.original, woman.hair, woman.glasses, woman.chubby, woman.beard, woman.other]
-eigenfaces_woman, mean_woman, eigenfaces_woman = woman.eigenfaces(woman_faces, 'Woman')
+eigenfaces_woman, mean_woman, eigenvalues_woman = woman.eigenfaces(woman_faces, 'Woman')
 
 # reconstruct with 1 random eigenface
 woman.reconstruct(eigenfaces_woman[x], mean_woman, 'Woman', 1)
@@ -168,4 +163,5 @@ woman.reconstruct(eigenfaces_woman, mean_woman, 'Woman', 6)
 
 # reconstruct with a different eigenface (kid in this case)
 #kid.reconstruct_with_other_eigenface(eigenfaces_old, eigenvalues_kid, eigenfaces_kid, 'Kid', 'Old Man')
+#woman.reconstruct_with_other_eigenface(eigenfaces_old, eigenvalues_woman, eigenfaces_woman, 'Woman', 'Old Man')
 plt.show()
