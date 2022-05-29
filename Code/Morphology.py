@@ -9,11 +9,14 @@ class Morphology:
 
         # creating an image with only black and white
         _, thresh1 = cv2.threshold(oranges, 127, 255, cv2.THRESH_BINARY)
-        _, thresh2 = cv2.threshold(orange_tree, 127, 255, cv2.THRESH_BINARY)
 
-        #self.count_orange(thresh1)
-        # the two array inputs are the lower bound and upper bound for the color orange
-        self.count_oranges_on_tree(orange_tree, np.array([1, 160, 100]), np.array([18, 255, 255]))
+        # self.count_orange(thresh1)
+
+        oranges_on_tree = self.isolate_oranges(orange_tree)
+        #cv2.imshow("oranges_on_tree", oranges_on_tree)
+        #cv2.waitKey()
+
+        self.count_oranges_on_tree(oranges_on_tree)
 
     def count_orange(self, threshold):
         # create a kernal
@@ -29,31 +32,40 @@ class Morphology:
         print("The number of oranges in the picture is " + str(len(contours)))
         cv2.waitKey(0)
 
-    def count_oranges_on_tree(self, image, lowerbound, upperbound):
-        # create kernels for dilation and erosion
-        kernel = np.ones((2, 2), np.uint8)
+    # this method will take away most of the background from the image
+    def isolate_oranges(self, image):
+        lowerBound = np.array([1, 100, 80])
+        upperBound = np.array([22, 256, 256])
 
-        # first we need to convert from grayscale to HSV
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(image, lowerBound, upperBound)
+        # morphology
+        only_oranges = cv2.bitwise_and(image, image, mask=mask)
+        return cv2.cvtColor(only_oranges, cv2.COLOR_BGR2GRAY)
 
-        # create a mask
-        mask = cv2.inRange(hsv, lowerbound, upperbound)
+    def count_oranges_on_tree(self, image):
+        # threshold the image
+        _, thresh = cv2.threshold(image, 167, 255, cv2.THRESH_BINARY)
+        cv2.imshow("Threshold", thresh)
+        # morphology
+        erosion_structure = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        dilation_structure = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (40, 40))
 
-        # show the image as only the orange objects
-        result = cv2.bitwise_and(image, image, mask=mask)
+        maskOpen = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, dilation_structure)
+        maskClose = cv2.morphologyEx(maskOpen, cv2.MORPH_ERODE, erosion_structure)
 
-        # first convert from hsv to grayscale
-        gray = cv2.cvtColor(result, cv2.COLOR_BGR2GRAY)
+        conts, h = cv2.findContours(maskClose, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        # now apply thresholding so the image is only black and white
-        _, threshold = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-        cv2.imshow("Threshold", threshold)
+        for c in conts:
+            area = cv2.contourArea(c)
+            if area > 100:
+                print("The number of oranges on the tree is " + str(len(conts)))
+                break
 
-        dilation = cv2.dilate(threshold, kernel, iterations=10)
-        cv2.imshow("Dilation", dilation)
+        cv2.waitKey(0)
+        cv2.drawContours(image, conts, -1, (255, 0, 0), 3)
 
-        cv2.waitKey()
-
+        cv2.imshow("Final", image)
+        cv2.waitKey(0)
 
 
 oranges = Morphology("images/oranges.jpg", "images/orangetree.jpg")

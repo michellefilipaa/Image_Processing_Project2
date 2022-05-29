@@ -51,16 +51,13 @@ class Recognition:
 
         return eigenfaces, mean, eigenvalues
 
-    def reconstruct(self, eigenfaces, mean, name, number_of_eigenfaces, alpha=0.03):
-        # to reconstruct the face, we add an eigenface to the mean
-        new_face = np.zeros((self.width, self.height), dtype=np.float32)
-        # get the sum of the scalar multiplier and the eigenface/s
-        for i in range(len(eigenfaces)):
-            new_face += alpha * eigenfaces[i]
-
-        # add the above sum to the mean to get the reconstructed face
-        mean = mean.reshape(self.width, self.height)
-        new_face += mean
+    def reconstruct(self, image, eigenvector, mean, name, number_of_eigenfaces, alpha=0.03):
+        # first we need to vectorize the image
+        image = image.flatten()
+        # and now we subtract the mean
+        image = image - mean
+        # to get the weights, we need the dot product of the differences between the PC and mean
+        weights = np.dot(eigenvector, image)
 
         title = 'Reconstructed Face for ' + name + ' with ' + str(number_of_eigenfaces) + ' eigenface/s'
         plt.figure(title, figsize=(12, 5))
