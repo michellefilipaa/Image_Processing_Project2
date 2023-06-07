@@ -9,3 +9,6 @@ Several image processing techniques are applied to different images. These techn
 4. Morphology
 5. Granulometry
 6. PCA - Recognition
+
+
+I completed this assignment and achieved 90%. 
